@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import base64
 import importlib.util
+import io
 import json
 from pathlib import Path
 import struct
+import tarfile
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -45,13 +47,19 @@ class ReleaseTests(unittest.TestCase):
             ".agents/skills/git-workflow/SKILL.md": "Skill content",
             ".agents/skills/git-workflow/references/help.md": "Help",
             ".agents/skills/git-workflow/references/gitrelease.md": "Release",
+            ".agents/skills/git-workflow/references/release-init.md": "Init fixture",
+            ".agents/skills/git-workflow/references/release-workflow.md": "Workflow contract fixture",
+            ".agents/skills/git-workflow/references/changelog.md": "Changelog fixture",
+            ".agents/skills/git-workflow/scripts/release_notes.py": "# Notes helper fixture\n",
+            ".agents/skills/git-workflow/assets/release/build-multiplatform-release.yml.tmpl": "# Template fixture\n",
         }
         encoded = base64.b64encode(zlib.compress(json.dumps(payload).encode())).decode()
         (self.root / "git_workflow.py").write_bytes(
             f'VERSION = "2.13.0"\r\nPAYLOAD_B64 = {encoded!r}\r\n'.encode()
         )
         for name in ("README.md", "Panduan-Git-Workflow.md", "requirements-build.txt",
-                     "scripts/install-cli.ps1", "scripts/install-cli.sh"):
+                     "scripts/install-cli.ps1", "scripts/install-cli.sh",
+                     "scripts/uninstall-cli.ps1", "scripts/uninstall-cli.sh"):
             (self.root / name).write_text(name + "\n", encoding="utf-8")
         (self.root / "CHANGELOG.md").write_text(
             "# Changelog\n\n## [2.13.0] - 2026-10-08\n\n### Added\n\n- Portable CLI.\n\n"
@@ -77,6 +85,17 @@ class ReleaseTests(unittest.TestCase):
     def test_release_uses_single_version(self) -> None:
         self.assertEqual(self.metadata["version"], "2.13.0")
         self.assertNotIn("bundled_version", self.metadata)
+
+    def test_missing_workflow_template_blocks_distribution_preflight(self) -> None:
+        source = self.root / "git_workflow.py"
+        original = source.read_text(encoding="utf-8")
+        encoded = release.constant(source, "PAYLOAD_B64")
+        payload = json.loads(zlib.decompress(base64.b64decode(encoded)))
+        payload.pop(".agents/skills/git-workflow/assets/release/build-multiplatform-release.yml.tmpl")
+        replacement = base64.b64encode(zlib.compress(json.dumps(payload).encode())).decode()
+        source.write_text(original.replace(repr(encoded), repr(replacement)), encoding="utf-8")
+        with self.assertRaisesRegex(release.ReleaseError, "missing assets/release"):
+            release.preflight(self.root, "local", "refs/heads/main")
 
     def test_banner_asset_must_match_standalone_source(self) -> None:
         asset = self.root / "assets/banner/ASCIILogo.txt"
@@ -104,10 +123,17 @@ class ReleaseTests(unittest.TestCase):
             ))
             self.assertEqual(release.project_metadata(self.root)["prerelease"], expected)
 
-    def test_main_and_manual_builds_do_not_publish(self) -> None:
-        for event, ref in (("push", "refs/heads/main"), ("workflow_dispatch", "refs/heads/main")):
-            result = release.preflight(self.root, event, ref)
+    def test_manual_builds_do_not_publish(self) -> None:
+        for ref in ("refs/heads/main", "refs/heads/feature/test", "refs/tags/v2.13.0"):
+            result = release.preflight(self.root, "workflow_dispatch", ref)
             self.assertEqual(result["publish"], "false")
+
+    def test_branch_pushes_are_rejected_before_git_validation(self) -> None:
+        for ref in ("refs/heads/main", "refs/heads/feature/test", "refs/heads/release/2.13.0"):
+            with self.subTest(ref=ref), patch.object(release, "git_output") as git:
+                with self.assertRaisesRegex(release.ReleaseError, "only for vVERSION tags"):
+                    release.preflight(self.root, "push", ref, publish=True, sha=self.sha)
+                git.assert_not_called()
 
     def test_tag_and_manual_versions_must_match_metadata(self) -> None:
         with self.assertRaises(release.ReleaseError):
@@ -216,6 +242,30 @@ class ReleaseTests(unittest.TestCase):
             checksum.write_text(text)
             with self.assertRaises(release.ReleaseError):
                 release.verify_release(output, self.root, self.metadata)
+
+    def test_archive_rejects_uninstaller_that_differs_from_checkout(self) -> None:
+        incoming, _ = self.prepare_assets()
+        for target in release.PLATFORMS:
+            helper = self.root / "scripts" / release.archive_members(target)[2]
+            original = helper.read_bytes()
+            helper.write_bytes(original + b"changed\n")
+            with self.assertRaisesRegex(release.ReleaseError, "Bundled uninstall-cli"):
+                release.verify_archive(incoming / release.archive_name("2.13.0", target), target, self.root)
+            helper.write_bytes(original)
+
+    def test_posix_archive_requires_executable_uninstaller(self) -> None:
+        incoming, _ = self.prepare_assets()
+        for target in ("linux", "macos"):
+            archive = incoming / release.archive_name("2.13.0", target)
+            with tarfile.open(archive, "r:gz") as source:
+                members = [(member, source.extractfile(member).read()) for member in source.getmembers()]
+            with tarfile.open(archive, "w:gz") as destination:
+                for member, content in members:
+                    if member.name == "uninstall-cli.sh":
+                        member.mode = 0o644
+                    destination.addfile(member, io.BytesIO(content))
+            with self.assertRaisesRegex(release.ReleaseError, "Executable permissions missing"):
+                release.verify_archive(archive, target, self.root)
 
     def test_python_source_change_rejected_even_with_regenerated_checksum(self) -> None:
         output = self.collect()

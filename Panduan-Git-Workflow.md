@@ -1,6 +1,6 @@
 # Git Workflow: satu skill untuk 12 command Git, help dan pemeriksaan versi
 
-Versi Git Workflow **2.13.0**, diperbarui pada 8 Oktober 2026. Skill, CLI, dan distribusi memakai satu konstanta `VERSION` pada sumber utama. Sumber tunggal `git_workflow.py` memuat CLI, payload skill, serta logika install/uninstall dan didistribusikan sebagai executable native maupun skrip Python standalone. Paket ini mencakup pemeriksaan pemasangan `--version` melalui agent dan logic `gitrelease` untuk semua proyek non-web. Skill **Git Workflow** memuat dua belas alur kerja Git sebagai referensi perintah. Mode proyek memasang **satu** folder skill `.agents/skills/git-workflow/` di repo serta rule modular `.agents/rules/git-workflow.md`. Mode global memasang satu salinan skill pada lokasi masing-masing aplikasi untuk akun pengguna saat ini. Jika daftar skill belum diperbarui, buka ulang sesi agent. Penemuan otomatis tidak berarti perintah langsung dijalankan.
+Versi Git Workflow **2.14.0**, diperbarui pada 8 Oktober 2026. Skill, CLI, dan distribusi memakai satu konstanta `VERSION` pada sumber utama. Sumber tunggal `git_workflow.py` memuat CLI, payload skill, serta logika install/uninstall dan didistribusikan sebagai executable native maupun skrip Python standalone. Paket ini mencakup pemeriksaan pemasangan `--version` melalui agent dan logic `gitrelease` untuk semua proyek non-web. Skill **Git Workflow** memuat dua belas alur kerja Git sebagai referensi perintah. Pilih agent melalui `git-workflow setup` atau `--agent ID`; mode proyek/global mengikuti lokasi discovery setiap agent. Beberapa agent memakai direktori bersama `.agents/skills/`, sementara agent lain memakai lokasi native. Pemetaan 20 target, sumber dokumentasi dan konfigurasi host ada di [README](README.md#pemetaan-discovery-skill). Jika daftar skill belum diperbarui, buka ulang sesi agent. Penemuan otomatis tidak berarti perintah langsung dijalankan.
 
 ## Pemasangan melalui CLI di PATH
 
@@ -11,18 +11,20 @@ Dari root atau subdirektori repo, CLI memilih root Git berdasarkan folder kerja 
 ```sh
 git-workflow --help
 git-workflow --version
+git-workflow setup
+git-workflow agents
 git-workflow menu
 git-workflow commands
 git-workflow install
 git-workflow install --apply
-git-workflow install --global --apply
+git-workflow install --agent codex,antigravity-ide --global --apply
 git-workflow uninstall --apply
 git-workflow status
 ```
 
 Tanpa `--apply`, CLI hanya menampilkan rencana. `--project PATH` tetap tersedia untuk tujuan eksplisit. `--replace` memakai pemeriksaan konflik dan backup installer yang sama. Command Git seperti `commitmsg` tetap merupakan pesan kepada agent, bukan subcommand executable. `git_workflow.py` disertakan sebagai distribusi keempat dan dapat dijalankan sendiri sebagaimana dijelaskan berikut.
 
-Menjalankan `git-workflow` tanpa argumen dari terminal interaktif membuka menu dengan banner, tabel pilihan, dan command tree. Pilih install/update atau uninstall, tentukan cakupan, lalu tinjau preview sebelum menjawab `y` pada pertanyaan penerapan. `status` memeriksa hash manifest tanpa mengubah pemasangan. Spinner, progress bar file, stepper, panel hasil, warna, dan ikon tampil pada terminal yang mendukungnya; encoding terbatas memakai ikon ASCII. Gunakan `--plain` untuk output sederhana, atau `--no-color`/environment `NO_COLOR` untuk menghilangkan warna. Pipe, CI, dan terminal `dumb` otomatis menggunakan output sederhana tanpa prompt. Petunjuk lengkap dan exit code ada di [README.md](README.md#tampilan-terminal-dan-menu).
+Menjalankan `git-workflow` tanpa argumen dari terminal interaktif membuka menu dengan banner, tabel pilihan, dan command tree. Pilih install/update atau uninstall, tentukan agent dan cakupan, lalu tinjau preview sebelum menjawab `y` pada pertanyaan penerapan. `status` memeriksa hash manifest tanpa mengubah pemasangan. Spinner, progress bar file, stepper, panel hasil, warna, dan ikon tampil pada terminal yang mendukungnya; encoding terbatas memakai ikon ASCII. Gunakan `--plain` untuk output sederhana, atau `--no-color`/environment `NO_COLOR` untuk menghilangkan warna. Pipe, CI, dan terminal `dumb` otomatis menggunakan output sederhana tanpa prompt. Petunjuk lengkap dan exit code ada di [README.md](README.md#tampilan-terminal-dan-menu).
 
 ## Pemasangan lokal melalui CLI Python standalone
 
@@ -46,20 +48,14 @@ Katalog dua belas command beserta parameternya tersedia melalui `$git-workflow h
 
 ## Pemasangan global untuk akun pengguna
 
-Simpan skrip di folder mana pun, lalu jalankan dengan `--global`. Tanpa `--apply`, skrip hanya menampilkan rencana. Jalankan sebagai akun pengguna biasa agar terpasang pada akun yang Anda pakai menjalankan Codex dan Antigravity:
+Simpan skrip di folder mana pun, lalu jalankan dengan `--global`. Tanpa `--apply`, skrip hanya menampilkan rencana. Jalankan sebagai akun pengguna biasa agar terpasang pada akun yang Anda pakai menjalankan agent terpilih:
 
 ```powershell
-py "D:\Tools\git_workflow.py" install --global
-py "D:\Tools\git_workflow.py" install --global --apply
+py "D:\Tools\git_workflow.py" install --agent codex,antigravity-ide --global
+py "D:\Tools\git_workflow.py" install --agent codex,antigravity-ide --global --apply
 ```
 
-Mode ini memasang paket skill yang sama pada tiga lokasi resmi:
-
-| Aplikasi | Lokasi global |
-| --- | --- |
-| Codex CLI/IDE | `~/.agents/skills/git-workflow/` |
-| Antigravity IDE/2.0 | `~/.gemini/config/skills/git-workflow/` |
-| Antigravity CLI | `~/.gemini/antigravity-cli/skills/git-workflow/` |
+Mode ini hanya memasang target yang dipilih. Daftar ID dan lokasi repo/global ada pada `git-workflow agents` serta [tabel README](README.md#pemetaan-discovery-skill). `--agent` bisa diulang, memakai koma, atau `all`. Instalasi baru tanpa selector memakai Codex; pada pemasangan yang sudah ada, selector kosong memakai seluruh agent tercatat.
 
 `~` berarti folder pengguna saat ini (`%USERPROFILE%` di Windows). Pemasangan global tidak menyunting `AGENTS.md` atau file repo apa pun. `--global` tidak boleh digabung dengan `--project`. Jika ada file skill berbeda di lokasi tujuan, installer berhenti; setelah ditinjau, `--replace --apply` membuat backup sebelum menggantinya. Mode global mengatur akun komputer tempat skrip dijalankan, bukan instalasi skill di ChatGPT browser/cloud.
 
@@ -81,7 +77,7 @@ py "D:\Tools\git_workflow.py" uninstall --global
 py "D:\Tools\git_workflow.py" uninstall --global --apply
 ```
 
-Dari folder lain, gunakan `uninstall --project "D:\Projects\nama-project" --apply` untuk pemasangan proyek. Alias lama `--uninstall` tetap diterima. Skrip membaca manifest dan hanya menghapus file paket yang tercatat, serta blok Git Workflow dalam `AGENTS.md`; instruksi lain tetap ada. File yang diubah secara manual menghentikan proses. Setelah meninjau perbedaannya, `uninstall --replace --apply` membuat backup dan menghapus file paket yang dimodifikasi. Setiap penghapusan yang diterapkan menyimpan backup file sebelumnya di folder sementara, dan pemasangan global tidak mengubah repo. Jika manifest tidak ada, skrip tidak menghapus file apa pun.
+Dari folder lain, gunakan `uninstall --project "D:\Projects\nama-project" --apply` untuk pemasangan proyek. Alias lama `--uninstall` tetap diterima. Gunakan `--agent ID` untuk menghapus satu target. Skrip membaca manifest dan hanya menghapus file paket yang tidak memiliki pemilik tersisa; file bersama serta blok Git Workflow dalam `AGENTS.md` dipertahankan selama masih digunakan target lain. Tanpa selector, seluruh target tercatat pada cakupan itu dihapus. Instruksi lain tetap ada. File yang diubah secara manual menghentikan proses. Setelah meninjau perbedaannya, `uninstall --replace --apply` membuat backup dan menghapus file paket yang dimodifikasi. Setiap penghapusan yang diterapkan menyimpan backup file sebelumnya di folder sementara, dan pemasangan global tidak mengubah repo. Jika manifest tidak ada, skrip tidak menghapus file apa pun.
 
 ## Cara memanggil
 
@@ -101,13 +97,13 @@ Kirim perintah berikut kepada agent setelah skill Git Workflow dipilih atau ters
 git-workflow --version
 ```
 
-Gunakan `$git-workflow --version` di Codex atau `/git-workflow --version` di Antigravity. Di ChatGPT, pilih Git Workflow lalu kirim `--version`. Ini utilitas tingkat atas di samping help; nomor 1–12 command Git tetap sama. Jangan gabungkan dengan command Git atau parameter lain. Pemeriksaan ini merupakan pesan kepada agent. Terminal `git-workflow --version` atau `py "D:\Tools\git_workflow.py" --version` menampilkan **versi paket skill** sebagai `Git Workflow 2.13.0`, sedangkan versi skill yang aktif/terpasang diperiksa oleh agent. File `VERSION` skill dan manifest mengikuti konstanta paket saat pemasangan; salinan lama perlu diperbarui dengan `install --apply`.
+Gunakan `$git-workflow --version` di Codex atau `/git-workflow --version` di Antigravity. Di ChatGPT, pilih Git Workflow lalu kirim `--version`. Ini utilitas tingkat atas di samping help; nomor 1–12 command Git tetap sama. Jangan gabungkan dengan command Git atau parameter lain. Pemeriksaan ini merupakan pesan kepada agent. Terminal `git-workflow --version` atau `py "D:\Tools\git_workflow.py" --version` menampilkan **versi paket skill** sebagai `Git Workflow 2.14.0`, sedangkan versi skill yang aktif/terpasang diperiksa oleh agent. File `VERSION` skill dan manifest mengikuti konstanta paket saat pemasangan; salinan lama perlu diperbarui dengan `install --apply`.
 
-Agent memeriksa skill yang benar-benar dipilih host, lalu pemasangan proyek dan global Codex/Antigravity yang dapat diakses. Hasil memuat versi konten dari file `VERSION`, versi tercatat di manifest, status pemasangan, lokasi/cakupan, dan salinan mana yang aktif. Pemeriksaan tidak menjalankan Git, memasang dependensi, memperbarui skill, mengubah file, atau mengakses jaringan.
+Agent memeriksa skill yang benar-benar dipilih host, lalu lokasi proyek dan global semua agent yang dapat diakses. Hasil memuat versi konten dari file `VERSION`, versi tercatat di manifest, status pemasangan, lokasi/cakupan, dan salinan mana yang aktif. Pemeriksaan tidak menjalankan Git, memasang dependensi, memperbarui skill, mengubah file, atau mengakses jaringan.
 
 | Keadaan | Hasil pemeriksaan |
 | --- | --- |
-| Skill aktif versi 2.13.0 | Tampilkan **2.13.0** dari file VERSION pada salinan yang dipilih host. |
+| Skill aktif versi 2.14.0 | Tampilkan **2.14.0** dari file VERSION pada salinan yang dipilih host. |
 | Salinan proyek/global berbeda versi | Tampilkan setiap versi secara terpisah; salinan terbaru tidak otomatis dianggap aktif. |
 | Berkas paket berubah/hilang atau versi manifest berbeda | Tampilkan status perubahan/ketidaksesuaian dari pemeriksaan hash dan metadata; tidak diperbaiki otomatis. |
 | Pemasangan lama belum memiliki VERSION | Tampilkan versi manifest sebagai **versi tercatat**; versi konten belum terverifikasi. Jangan menebak versi terbaru dari installer. |
@@ -224,7 +220,7 @@ Contoh: satu file `.gitignore` yang berubah → short; `.gitignore` staged tetap
 
 ## Versioning dan GitHub Release
 
-**gitrelease** mendukung **semua proyek selain website dan aplikasi web berbasis browser**, termasuk mobile/desktop, CLI, tooling, installer, library, skrip, service dan backend API. Build, packaging dan distribusi mengikuti codebase serta kebutuhan proyek, tetap di dalam satu skill Git Workflow. Format changelog mengacu pada [TonzToon Komik](https://github.com/AlvinPradanaAntony/tonztoon_komik-vibecode/blob/main/CHANGELOG.md) dan alur publikasinya mengacu pada [build-release.yml](https://github.com/AlvinPradanaAntony/tonztoon_komik-vibecode/blob/main/.github/workflows/build-release.yml). Repo tersebut hanya menjadi referensi struktur; tujuan command adalah repo proyek yang sedang Anda gunakan.
+**gitrelease** mendukung **semua proyek selain website dan aplikasi web berbasis browser**, termasuk mobile/desktop, CLI, tooling, installer, library, skrip, service dan backend API. Build, packaging dan distribusi mengikuti codebase serta kebutuhan proyek, tetap di dalam satu skill Git Workflow. Struktur CI/CD dan format changelog/notes mengikuti [repo ini](README.md#alur-skill-gitrelease-init); payload membundel panduan serta template untuk diadaptasi. Tujuan command adalah repo proyek yang sedang Anda gunakan.
 
 ```text
 /git-workflow gitrelease
@@ -264,7 +260,9 @@ Default route auto memakai publisher yang ada; jika belum ada dan cakupan produk
 
 Target mengikuti distribusi proyek: paket aplikasi mobile/desktop, binary CLI, paket library, berkas installer/skrip, paket/container service, atau source bertag sesuai kontrak proyek. Kompilasi hanya dilakukan bila dibutuhkan; library/skrip tidak dipaksa memakai native bundler. Android/iOS dan desktop tetap mengikuti kebutuhan signing serta format installer/portable yang benar-benar didukung dan dipilih. Agent tidak mengaktifkan semua OS hanya karena framework mampu. Jika pilihan platform, format, signing atau publisher belum jelas, ia memberi opsi spesifik beserta manfaat/konsekuensi/cakupan dan satu Rekomendasi. Ia menahan hanya konfigurasi yang bergantung pada jawaban; pekerjaan metadata/helper yang sudah diizinkan dapat dilanjutkan secara independen.
 
-Workflow yang dihasilkan memiliki pemeriksaan tag/versi/changelog, validasi/build/packaging sesuai produk, verifikasi keluaran dan signing bila berlaku, serta satu publisher yang menunggu seluruh pemeriksaan wajib berhasil. Source-only memakai validasi source dan tag/SHA tanpa job upload kosong. Keluaran wajib yang kosong/hilang menggagalkan publikasi; tidak ada fallback debug/unsigned untuk target yang membutuhkan signing. Release notes mengikuti layout TonzToon dengan entri versi yang tepat dan tabel Download. Helper yang dipakai CI disalin ke lokasi proyek yang nyata, bukan menunjuk skill global. Suffix prerelease termasuk alpha dikenali secara benar.
+Workflow mengikuti struktur konsisten: **Trigger (Push Tag Versi / Manual) → Preflight & Version Validation → Build Matrix paralel → Collect & Verify Artifacts dan SHA-256 → Extract Release Notes → Publish GitHub Release untuk trigger valid**. Nama default workflow baru `.github/workflows/build-multiplatform-release.yml`; payload memuat template adaptasi dan referensi kontraknya. Toolchain mengikuti bahasa/codebase, dan matrix hanya mencakup target yang didukung serta dipilih. Push branch termasuk main tidak menjalankan workflow release. Filter tag default `v*.*.*` tetap disertai validasi SemVer pada preflight. Manual `publish=false` hanya build/verify; manual publish memerlukan tag versi yang sudah ada pada SHA terpilih.
+
+Source-only memvalidasi source/tag/SHA tanpa binary atau upload kosong. Keluaran wajib kosong/hilang menggagalkan publikasi; target yang membutuhkan signing tidak memakai fallback debug/unsigned. Release notes mengikuti repo Git Workflow: `## Nama Proyek vVERSI` lalu kategori dari entri versi yang tepat. Helper CI menjadi file proyek yang nyata, bukan menunjuk skill global; semua placeholder template harus diselesaikan. Suffix prerelease termasuk alpha dikenali dengan benar.
 
 Init tidak membuat signing key, menulis secret GitHub, menginstal toolchain secara global, melakukan commit/tag/push, atau memicu build CI. Kebutuhan secret/runners disampaikan tanpa meminta nilai rahasia di chat. Konfigurasi yang selesai tidak berarti distribusi sudah terverifikasi: agent melaporkan validasi aktual, build/packaging yang belum dijalankan dan hambatan yang berlaku. Keluaran dibuat melalui workflow atau build/packaging lokal yang diminta; source-only memvalidasi source serta referensi tag/SHA tanpa membuat binary.
 
@@ -348,7 +346,7 @@ Semua perubahan penting pada proyek **Nama Proyek** akan didokumentasikan di dal
 ---
 ```
 
-Contoh isi di atas harus diganti sesuai perubahan aktual. GitHub Release mengambil versi yang dipilih secara tepat, dengan maksimal satu versi sebelumnya dalam `<details>` berjudul **Riwayat versi sebelumnya**. Catatan versi yang sudah diterbitkan tidak ditulis ulang dan riwayat changelog tidak dihapus demi mempersingkat release notes.
+Contoh isi di atas harus diganti sesuai perubahan aktual. GitHub Release default mengambil hanya versi yang dipilih, dengan judul `## Nama Proyek vVERSI`; versi tetangga tidak ikut diekstrak. Maksimal satu pendahulu dalam `<details>` hanya untuk layout riwayat yang dipilih eksplisit. Catatan versi yang sudah diterbitkan tidak ditulis ulang dan riwayat changelog tidak dihapus demi mempersingkat release notes.
 
 ### Proyek dan distribusi yang didukung
 
@@ -372,7 +370,7 @@ Init/prepare dapat menyiapkan metadata sebelum keluaran distribusi selesai. Untu
 
 Distribusi source tidak dipilih diam-diam untuk mengatasi build gagal. Jika target binary wajib gagal, publikasi berhenti sampai target diperbaiki, atau cakupan target lebih kecil disetujui secara konkret. Platform yang belum berhasil dibangun tidak diiklankan sebagai tersedia.
 
-Rute direct memerlukan file distribusi wajib yang ada, tidak kosong, benar versi/target dan berasal dari SHA release. Source-only memerlukan source/ref yang terverifikasi. Rute workflow memeriksa seluruh gate validasi/build/packaging sebelum publisher, lalu memverifikasi distribusi aktual. Draft dan replacement mengikuti persyaratan distribusi yang sama. Tabel Download mencantumkan filename/link nyata, runtime/instalasi dan batasan distribusi; source-only mencantumkan link source/tag serta cara mengambilnya, bukan tabel kosong atau binary fiktif.
+Rute direct memerlukan file distribusi wajib yang ada, tidak kosong, benar versi/target dan berasal dari SHA release. Source-only memerlukan source/ref yang terverifikasi. Rute workflow memeriksa seluruh gate validasi/build/packaging sebelum publisher, lalu memverifikasi distribusi aktual. Draft dan replacement mengikuti persyaratan distribusi yang sama. Jika tabel Download dipilih, isinya mencantumkan filename/link nyata, runtime/instalasi dan batasan distribusi. Source-only menyediakan link source/tag dan petunjuk pengambilan sesuai kontrak proyek, tanpa binary fiktif.
 
 `gitrelease` menerbitkan GitHub Release/tag. Publish ke npm/PyPI/crates/container registry, upload app store, deploy service dan perubahan konfigurasi remote memerlukan cakupan instruksi terpisah. Release dapat menautkan paket/image yang sudah tersedia setelah versi/digest-nya diverifikasi. Jika workflow release sekaligus melakukan registry publish/deploy yang belum diizinkan, agent menyiapkan rute terpisah atau meminta keputusan untuk cakupan konkret itu sebelum trigger/tag push. Semua trigger yang relevan diperiksa, termasuk workflow yang berjalan saat GitHub Release dibuat.
 

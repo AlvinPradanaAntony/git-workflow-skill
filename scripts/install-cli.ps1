@@ -18,6 +18,16 @@ if ($destinationDir.Contains(';')) {
     throw 'InstallDir cannot contain the PATH separator (;).'
 }
 $destination = Join-Path $destinationDir 'git-workflow.exe'
+$receiptPath = Join-Path $destinationDir '.git-workflow-cli.json'
+$pathAdded = $false
+if (Test-Path -LiteralPath $receiptPath) {
+    $receipt = Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json
+    if ($receipt.schema -ne 1 -or $receipt.install_dir -ine $destinationDir -or
+        $receipt.path_added -isnot [bool]) {
+        throw 'Invalid CLI installation receipt. Review .git-workflow-cli.json before reinstalling.'
+    }
+    $pathAdded = $receipt.path_added
+}
 if (-not $PSCmdlet.ShouldProcess($destination, 'Install CLI and optionally register user PATH')) {
     return
 }
@@ -39,11 +49,14 @@ if (-not $NoPathUpdate) {
     if (-not $registered) {
         $newUserPath = if ($userPath) { $destinationDir + ';' + $userPath } else { $destinationDir }
         [Environment]::SetEnvironmentVariable('Path', $newUserPath, 'User')
+        $pathAdded = $true
     }
     if (-not (@($env:Path -split ';') -contains $destinationDir)) {
         $env:Path = $destinationDir + ';' + $env:Path
     }
 }
+@{ schema = 1; install_dir = $destinationDir; path_added = $pathAdded } |
+    ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding UTF8
 Write-Output "Installed CLI: $destination"
 if ($NoPathUpdate) {
     Write-Output 'PATH registration skipped. Add the installation directory to PATH before using git-workflow by name.'

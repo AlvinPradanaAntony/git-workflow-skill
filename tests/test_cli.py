@@ -175,19 +175,19 @@ class CliTests(unittest.TestCase):
         with patch.object(cli, "VERSION", "2.12.4"):
             self.assertEqual(self.invoke(["install", "--apply"])[0], 0)
         before = snapshot(self.repo)
-        with patch.object(cli, "VERSION", "2.14.0"):
+        with patch.object(cli, "VERSION", "9.2.0"):
             output = io.StringIO()
             with redirect_stdout(output), self.assertRaises(SystemExit):
                 cli.main(["--version"])
-            self.assertEqual(output.getvalue().strip(), "Git Workflow 2.14.0")
-            self.assertEqual(cli.load_payload()[".agents/skills/git-workflow/VERSION"], "2.14.0\n")
+            self.assertEqual(output.getvalue().strip(), "Git Workflow 9.2.0")
+            self.assertEqual(cli.load_payload()[".agents/skills/git-workflow/VERSION"], "9.2.0\n")
             self.assertEqual(self.invoke(["install", "--apply"])[0], 0)
         after = snapshot(self.repo)
         version_path = ".agents/skills/git-workflow/VERSION"
         manifest_path = ".agents/git-workflow-install.json"
-        self.assertEqual(after[version_path], b"2.14.0\n")
+        self.assertEqual(after[version_path], b"9.2.0\n")
         manifest = json.loads(after[manifest_path])
-        self.assertEqual(manifest["version"], "2.14.0")
+        self.assertEqual(manifest["version"], "9.2.0")
         self.assertEqual(manifest["files"][version_path], cli.digest(after[version_path]))
         self.assertEqual({name for name in before if before[name] != after[name]},
                          {version_path, manifest_path})
@@ -277,14 +277,14 @@ class CliTests(unittest.TestCase):
 
     def test_menu_navigation_and_declined_plan_do_not_write(self):
         before = snapshot(self.root)
-        result, output = self.interactive(["bad", "4", "5", "1", "1", "n", "0"])
+        result, output = self.interactive(["bad", "4", "5", "1", "codex", "1", "n", "0"])
         self.assertEqual(result, 0)
         for text in ("A g e n t i c", "Interactive menu", "Unknown selection", "Agent commands", "Quick start", "Preview"):
             self.assertIn(text, output)
         self.assertEqual(snapshot(self.root), before)
 
     def test_menu_install_status_and_uninstall_use_selected_repo(self):
-        result, output = self.interactive(["1", "1", "y", "3", "1", "2", "1", "y", "0"])
+        result, output = self.interactive(["1", "codex", "1", "y", "3", "codex", "1", "2", "codex", "1", "y", "0"])
         self.assertEqual(result, 0)
         self.assertIn("All manifest files intact", output)
         self.assertIn("[4/4] Installation complete", output)

@@ -71,6 +71,7 @@ def project_metadata(root: Path) -> dict[str, str]:
         "git_workflow.py", "CHANGELOG.md",
         "README.md", "Panduan-Git-Workflow.md", "requirements-build.txt",
         "scripts/install-cli.ps1", "scripts/install-cli.sh",
+        "scripts/uninstall-cli.ps1", "scripts/uninstall-cli.sh",
     )
     for name in required:
         if not (root / name).is_file():
@@ -90,7 +91,10 @@ def project_metadata(root: Path) -> dict[str, str]:
                 or not name.startswith(".agents/skills/git-workflow/")):
             raise ReleaseError("Bundled skill payload contains an unsafe file")
     prefix = ".agents/skills/git-workflow/"
-    for name in ("SKILL.md", "references/help.md", "references/gitrelease.md"):
+    for name in ("SKILL.md", "references/help.md", "references/gitrelease.md",
+                 "references/release-init.md", "references/release-workflow.md",
+                 "references/changelog.md", "scripts/release_notes.py",
+                 "assets/release/build-multiplatform-release.yml.tmpl"):
         if not payload.get(prefix + name, "").strip():
             raise ReleaseError(f"Bundled skill payload is missing {name}")
     if prefix + "VERSION" in payload:
@@ -159,10 +163,8 @@ def preflight(root: Path, event: str, ref: str, requested_version: str = "",
                 raise ReleaseError("Release tags must use the vVERSION format")
             selected = version_value(tag[1:])
             publish = True
-        elif ref == "refs/heads/main":
-            publish = False
         else:
-            raise ReleaseError("Push builds are allowed only for main or vVERSION tags")
+            raise ReleaseError("Push builds are allowed only for vVERSION tags; branch pushes do not run releases")
     elif event not in ("workflow_dispatch", "local"):
         raise ReleaseError(f"Unsupported workflow event: {event}")
     if event == "local" and publish:
@@ -206,6 +208,7 @@ def archive_name(version: str, target: str) -> str:
 def archive_members(target: str) -> tuple[str, ...]:
     return ("git-workflow.exe" if target == "windows" else "git-workflow",
             "install-cli.ps1" if target == "windows" else "install-cli.sh",
+            "uninstall-cli.ps1" if target == "windows" else "uninstall-cli.sh",
             "README.md", "Panduan-Git-Workflow.md")
 
 
@@ -244,12 +247,12 @@ def verify_archive(path: Path, target: str, root: Path) -> None:
                 raise ReleaseError(f"Unexpected or missing members in {path.name}")
             if any(not item.isfile() for item in members):
                 raise ReleaseError(f"Non-regular members in {path.name}")
-            if any(not archive.getmember(name).mode & 0o111 for name in expected[:2]):
+            if any(not archive.getmember(name).mode & 0o111 for name in expected[:3]):
                 raise ReleaseError(f"Executable permissions missing in {path.name}")
             contents = {name: archive.extractfile(name).read() for name in expected}
     validate_binary(contents[expected[0]], target)
     for name in expected[1:]:
-        source = root / ("scripts/" + name if name.startswith("install-cli.") else name)
+        source = root / ("scripts/" + name if name.startswith(("install-cli.", "uninstall-cli.")) else name)
         if contents[name] != source.read_bytes():
             raise ReleaseError(f"Bundled {name} differs from the approved checkout")
 
@@ -291,11 +294,24 @@ def smoke_test(executable: Path, version: str) -> None:
         status = run_checked([str(executable), "status", "--plain"], nested).stdout
         if "All manifest files intact" not in status:
             raise ReleaseError("Frozen status did not verify the installed manifest files")
+        agents = run_checked([str(executable), "agents", "--plain"], nested).stdout
+        if "claude-code" not in agents or "oh-my-pi" not in agents or "zencoder" not in agents:
+            raise ReleaseError("Frozen executable is missing multi-agent mappings")
+        run_checked([str(executable), "install", "--agent", "antigravity-ide,claude-code", "--apply"], nested)
+        claude = project / ".claude/skills/git-workflow/SKILL.md"
+        if not claude.is_file():
+            raise ReleaseError("Frozen agent selector did not install a native skill")
+        run_checked([str(executable), "uninstall", "--agent", "codex", "--apply"], nested)
+        if not installed.is_file() or not claude.is_file():
+            raise ReleaseError("Frozen partial uninstall removed a shared or unselected skill")
+        run_checked([str(executable), "status", "--agent", "antigravity-ide", "--plain"], nested)
         if (nested / ".agents").exists() or (nested / "AGENTS.md").exists():
             raise ReleaseError("Frozen executable installed into the nested directory instead of the Git root")
         run_checked([str(executable), "uninstall", "--apply"], nested)
         if installed.exists() or (project / ".agents/git-workflow-install.json").exists():
             raise ReleaseError("Frozen uninstall left managed skill files behind")
+        if claude.exists():
+            raise ReleaseError("Frozen uninstall left the native agent skill behind")
         if (nested / ".agents").exists() or (nested / "AGENTS.md").exists():
             raise ReleaseError("Frozen uninstall unexpectedly wrote nested directory files")
 
@@ -304,7 +320,8 @@ def package_native(root: Path, executable: Path, version: str, target: str, outp
     output.mkdir(parents=True, exist_ok=True)
     artifact = output / archive_name(version, target)
     members = archive_members(target)
-    sources = [executable, root / "scripts" / members[1], root / members[2], root / members[3]]
+    sources = [executable, root / "scripts" / members[1], root / "scripts" / members[2],
+               root / members[3], root / members[4]]
     if target == "windows":
         with zipfile.ZipFile(artifact, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for name, source in zip(members, sources):
@@ -313,7 +330,7 @@ def package_native(root: Path, executable: Path, version: str, target: str, outp
         with tarfile.open(artifact, "w:gz") as archive:
             for index, (name, source) in enumerate(zip(members, sources)):
                 item = archive.gettarinfo(str(source), arcname=name)
-                item.mode = 0o755 if index < 2 else 0o644
+                item.mode = 0o755 if index < 3 else 0o644
                 with source.open("rb") as data:
                     archive.addfile(item, data)
     verify_archive(artifact, target, root)
@@ -321,7 +338,7 @@ def package_native(root: Path, executable: Path, version: str, target: str, outp
 
 
 def smoke_installer(root: Path, executable: Path, target: str) -> None:
-    """Verify the archive's PATH installer without changing the runner's PATH."""
+    """Verify native CLI install/uninstall without changing the runner's PATH."""
     with tempfile.TemporaryDirectory(prefix="git-workflow-path-") as directory:
         workspace = Path(directory)
         bundle = workspace / "bundle"
@@ -329,6 +346,8 @@ def smoke_installer(root: Path, executable: Path, target: str) -> None:
         shutil.copyfile(executable, bundle / executable.name)
         helper = "install-cli.ps1" if target == "windows" else "install-cli.sh"
         shutil.copyfile(root / "scripts" / helper, bundle / helper)
+        uninstaller = helper.replace("install-cli.", "uninstall-cli.")
+        shutil.copyfile(root / "scripts" / uninstaller, bundle / uninstaller)
         destination = workspace / "user bin"
         if target == "windows":
             command = ["pwsh", "-NoProfile", "-File", str(bundle / helper),
@@ -341,6 +360,13 @@ def smoke_installer(root: Path, executable: Path, target: str) -> None:
         if not installed.is_file() or sha256(installed) != sha256(executable):
             raise ReleaseError("PATH installer did not preserve the executable bytes")
         run_checked([str(installed), "--version"], workspace)
+        retained = destination / "unrelated-tool.txt"
+        retained.write_text("keep", encoding="utf-8")
+        command[command.index(str(bundle / helper))] = str(bundle / uninstaller)
+        run_checked(command, workspace)
+        run_checked(command, workspace)
+        if installed.exists() or not retained.is_file():
+            raise ReleaseError("CLI uninstall left its executable or removed an unrelated file")
 
 
 def build_native(root: Path, metadata: dict[str, str], target: str, output: Path) -> Path:
