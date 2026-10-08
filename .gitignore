@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.venv/
+.release/
+build/
+dist/
+artifacts/
+release-assets/
+release-notes.md
+*.spec
+preflight.json

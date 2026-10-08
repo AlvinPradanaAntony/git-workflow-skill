@@ -1,0 +1,224 @@
+name: Build Multiplatform Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versi tanpa awalan v; kosong mengikuti VERSION"
+        required: false
+        default: ""
+        type: string
+      publish:
+        description: "Publish hanya jika tag vVERSION sudah menunjuk commit yang dipilih"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: multiplatform-release-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight & Version Validation
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.validate.outputs.version }}
+      tag: ${{ steps.validate.outputs.tag }}
+      publish: ${{ steps.validate.outputs.publish }}
+      sha: ${{ steps.validate.outputs.sha }}
+      prerelease: ${{ steps.validate.outputs.prerelease }}
+    steps:
+      - name: Checkout selected commit and existing tags
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - name: Validate project, version, payload and release eligibility
+        id: validate
+        env:
+          INPUT_VERSION: ${{ inputs.version || '' }}
+          INPUT_PUBLISH: ${{ inputs.publish && 'true' || 'false' }}
+        run: python scripts/release.py preflight --output .release/metadata.json
+      - name: Test CLI and release validation
+        run: python -m unittest discover -s tests -v
+      - name: Preserve approved build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-metadata
+          path: .release/metadata.json
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+
+  build:
+    name: Build ${{ matrix.platform }} x64
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            runner: windows-latest
+          - platform: linux
+            runner: ubuntu-22.04
+          - platform: macos
+            runner: macos-15-intel
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+      - name: Setup native x64 Python toolchain
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+          cache: pip
+          cache-dependency-path: requirements-build.txt
+      - name: Download approved build metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: release-metadata
+          path: .release
+      - name: Install pinned executable builder
+        run: python -m pip install --requirement requirements-build.txt
+      - name: Build, smoke-test CLI and PATH installer, and package
+        run: python scripts/release.py build --platform ${{ matrix.platform }} --metadata .release/metadata.json --out-dir .release/native
+      - name: Upload native portable distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.platform }}-x64
+          path: .release/native/*
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+
+  collect-verify:
+    name: Collect & Verify Artifacts
+    needs: [preflight, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download approved build metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: release-metadata
+          path: .release
+      - name: Download all native archives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*-x64
+          merge-multiple: true
+          path: .release/incoming
+      - name: Verify native archives and standalone Python CLI and generate SHA-256 checksums
+        run: python scripts/release.py collect --incoming .release/incoming --out-dir .release/assets --metadata .release/metadata.json
+      - name: Preserve verified distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: .release/assets/*
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+
+  extract-release-notes:
+    name: Extract Release Notes
+    needs: [preflight, collect-verify]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout approved commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Extract the exact version changelog
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: python scripts/release.py notes --version "$RELEASE_VERSION" --output .release/release-notes.md
+      - name: Preserve release notes
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: .release/release-notes.md
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
+
+  publish-release:
+    name: Publish GitHub Release
+    needs: [preflight, collect-verify, extract-release-notes]
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout approved commit and existing tags
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.sha }}
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download approved build metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: release-metadata
+          path: .release
+      - name: Download verified assets
+        uses: actions/download-artifact@v4
+        with:
+          name: release-assets
+          path: .release/assets
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: .release
+      - name: Reverify assets before publication
+        run: python scripts/release.py verify --directory .release/assets --metadata .release/metadata.json
+      - name: Revalidate exact local and remote tag commit
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
+        run: python scripts/release.py validate-tag --version "$RELEASE_VERSION" --sha "$RELEASE_SHA" --remote
+      - name: Create release without creating tags or replacing an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          RELEASE_SHA: ${{ needs.preflight.outputs.sha }}
+          RELEASE_PRERELEASE: ${{ needs.preflight.outputs.prerelease }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=("$RELEASE_TAG" .release/assets/* --verify-tag --target "$RELEASE_SHA"
+                --title "Git Workflow $RELEASE_TAG" --notes-file .release/release-notes.md)
+          if [[ "$RELEASE_PRERELEASE" == true ]]; then
+            args+=(--prerelease)
+          fi
+          gh release create "${args[@]}"
