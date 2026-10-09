@@ -123,7 +123,7 @@ def release_notes(changelog: str, version: str) -> str:
                            if not line.lstrip().startswith(("#", "<", "[")))
     if not re.sub(r"[\s#>*_`\-]+", "", meaningful):
         raise ReleaseError(f"Release notes for {version} are empty")
-    return f"## Git Workflow v{version}\n\n{body}\n"
+    return f"## 📋 Apa yang Baru di v{version}?\n\n{body}\n"
 
 
 def git_output(root: Path, *args: str) -> str:
@@ -348,25 +348,37 @@ def smoke_installer(root: Path, executable: Path, target: str) -> None:
         shutil.copyfile(root / "scripts" / helper, bundle / helper)
         uninstaller = helper.replace("install-cli.", "uninstall-cli.")
         shutil.copyfile(root / "scripts" / uninstaller, bundle / uninstaller)
+        for document in ("README.md", "Panduan-Git-Workflow.md"):
+            shutil.copyfile(root / document, bundle / document)
+        expected = {item.name: item.read_bytes() for item in bundle.iterdir()}
+        retry_helper = workspace / uninstaller
+        shutil.copyfile(root / "scripts" / uninstaller, retry_helper)
         destination = workspace / "user bin"
         if target == "windows":
             command = ["pwsh", "-NoProfile", "-File", str(bundle / helper),
-                       "-InstallDir", str(destination), "-NoPathUpdate"]
+                       "-InstallDir", str(destination), "-NoPathUpdate", "-Yes"]
         else:
             (bundle / executable.name).chmod(0o755)
-            command = ["sh", str(bundle / helper), "--bin-dir", str(destination), "--no-path-update"]
+            command = ["sh", str(bundle / helper), "--bin-dir", str(destination), "--no-path-update", "--yes"]
         run_checked(command, workspace)
         installed = destination / executable.name
         if not installed.is_file() or sha256(installed) != sha256(executable):
             raise ReleaseError("PATH installer did not preserve the executable bytes")
+        if any(bundle.iterdir()) or any((destination / name).read_bytes() != content for name, content in expected.items()):
+            raise ReleaseError("PATH installer did not move the complete release package")
         run_checked([str(installed), "--version"], workspace)
         retained = destination / "unrelated-tool.txt"
         retained.write_text("keep", encoding="utf-8")
-        command[command.index(str(bundle / helper))] = str(bundle / uninstaller)
+        helper_index = command.index(str(bundle / helper))
+        command[helper_index] = str(destination / uninstaller)
         run_checked(command, workspace)
+        if any((destination / name).exists() for name in expected) or not retained.is_file():
+            raise ReleaseError("CLI uninstall left package files or removed an unrelated file")
+        retained.unlink()
+        command[helper_index] = str(retry_helper)
         run_checked(command, workspace)
-        if installed.exists() or not retained.is_file():
-            raise ReleaseError("CLI uninstall left its executable or removed an unrelated file")
+        if destination.exists():
+            raise ReleaseError("CLI uninstall did not remove its empty installation directory")
 
 
 def build_native(root: Path, metadata: dict[str, str], target: str, output: Path) -> Path:

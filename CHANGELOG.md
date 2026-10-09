@@ -2,6 +2,22 @@
 
 Perubahan skill, CLI, dan distribusi Git Workflow dengan satu versi paket.
 
+## [2.15.0] - 2026-10-09
+
+### Added
+
+- Banner dan daftar aksi pada helper install/uninstall shell serta PowerShell, konfirmasi default tidak, status centang per langkah, pesan sukses, dan jeda akhir pada terminal interaktif tanpa redraw layar.
+- Opsi `--yes`/`-Yes` untuk helper pada CI, serta `--dry-run` pada installer shell; input konfirmasi yang tidak tersedia menghentikan perubahan.
+- Jeda tekan tombol apa saja pada install/uninstall Windows, Linux, dan macOS setelah sukses, pembatalan, atau error; fallback Enter untuk host terbatas, opsi `-NoPause`/`--no-pause`, dan exit code kegagalan tetap dipertahankan.
+
+### Changed
+
+- Format release memakai judul `🎉 Git Workflow vVERSI` dan heading notes `📋 Apa yang Baru di vVERSI?`, mengikuti gaya TonzToon; helper notes yang dibundel memakai heading yang sama.
+- Publish melalui workflow CI yang sudah tersedia langsung memicu tag/manual publish tanpa mengulang validasi versi/changelog, build, signing, artefak/checksum dan notes secara lokal; status run dilaporkan tanpa menunggu build secara default, dengan pemantauan selesai bila diminta. Jalur direct dan operasi destruktif mempertahankan pemeriksaan yang relevan.
+- Semua 12 command skill memakai pemeriksaan sesuai aksi, eksekusi langsung ketika cakupan jelas, pemakaian ulang bukti yang belum berubah, serta diagnosis error dan saran retry tanpa validasi tes/build rutin. Hook, aturan repo, backup dan gate publikasi yang relevan tetap berlaku.
+- Helper install memindahkan seluruh lima file arsip native ke tujuan, termasuk helper dan panduan. Uninstall memakai catatan kepemilikan file untuk menghapus seluruh paket serta folder kosong tanpa menghapus file lain atau skill agent.
+- Tujuan default Linux/macOS menjadi `~/.local/share/git-workflow/bin` agar seluruh paket berada di folder khusus. Helper terpasang mengenali tujuannya sendiri; instalasi lama tetap dapat dibersihkan sebagai executable saja.
+
 ## [2.14.0] - 2026-10-08
 
 ### Added

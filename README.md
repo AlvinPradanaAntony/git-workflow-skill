@@ -1,68 +1,89 @@
 # Git Workflow CLI
 
-Pasang satu skill Git Workflow berisi 12 command melalui CLI yang tersedia di PATH. Jalankan dari root atau subdirektori repo tanpa menyalin installer ke setiap proyek. Git Workflow **2.14.0** memakai satu versi untuk skill, CLI, dan distribusinya. Satu file sumber `git_workflow.py` memuat CLI, payload skill, dan logika install/uninstall; executable native dibangun dari sumber yang sama.
+Pasang satu skill Git Workflow berisi 12 command melalui CLI yang tersedia di PATH. Jalankan dari root atau subdirektori repo tanpa menyalin installer ke setiap proyek. Git Workflow **2.15.0** memakai satu versi untuk skill, CLI, dan distribusinya. Satu file sumber `git_workflow.py` memuat CLI, payload skill, dan logika install/uninstall; executable native dibangun dari sumber yang sama.
 
 ## Distribusi release
 
 | Distribusi | Artefak | Isi dan kebutuhan |
 | --- | --- | --- |
-| Windows x64 | `git-workflow-2.14.0-windows-x64.zip` | Executable mandiri, `install-cli.ps1`, `uninstall-cli.ps1`, dan panduan; Python tidak diperlukan |
-| Linux x64 | `git-workflow-2.14.0-linux-x64.tar.gz` | Executable mandiri, `install-cli.sh`, `uninstall-cli.sh`, dan panduan; dibangun di Ubuntu 22.04 |
-| macOS x64 | `git-workflow-2.14.0-macos-x64.tar.gz` | Executable Intel, `install-cli.sh`, `uninstall-cli.sh`, dan panduan; Apple Silicon membutuhkan Rosetta |
+| Windows x64 | `git-workflow-2.15.0-windows-x64.zip` | Executable mandiri, `install-cli.ps1`, `uninstall-cli.ps1`, dan panduan; Python tidak diperlukan |
+| Linux x64 | `git-workflow-2.15.0-linux-x64.tar.gz` | Executable mandiri, `install-cli.sh`, `uninstall-cli.sh`, dan panduan; dibangun di Ubuntu 22.04 |
+| macOS x64 | `git-workflow-2.15.0-macos-x64.tar.gz` | Executable Intel, `install-cli.sh`, `uninstall-cli.sh`, dan panduan; Apple Silicon membutuhkan Rosetta |
 | Python lintas OS | `git_workflow.py` | CLI standalone dengan payload skill; membutuhkan Python 3.9+ tanpa dependensi tambahan |
 
 Nama arsip mengikuti versi Git Workflow yang dirilis. `SHA256SUMS.txt` menyertai keempat distribusi. Binary belum ditandatangani/notarized. Git diperlukan untuk menjalankan alur kerja Git melalui agent, sedangkan pemasangan skill memakai engine Python yang sudah dibundel.
 
 ## Pasang CLI pada PATH
 
-Unduh arsip sesuai OS dari tab Releases repo, periksa checksum yang sesuai, lalu ekstrak seluruh isinya. Helper hanya memasang executable dan mendaftarkan PATH; pemasangan skill dilakukan terpisah melalui `git-workflow install`.
+Unduh arsip sesuai OS dari tab Releases repo, periksa checksum yang sesuai, lalu ekstrak seluruh isinya. Setelah konfirmasi, helper **memindahkan (cut)** kelima file paket ke direktori pemasangan: executable, helper install, helper uninstall, `README.md`, dan `Panduan-Git-Workflow.md`. File paket tersebut hilang dari folder ekstraksi setelah pemindahan berhasil. Helper mendaftarkan direktori pemasangan ke PATH; pemasangan skill dilakukan terpisah melalui `git-workflow install`.
+
+Daftar file harus lengkap sebelum pemindahan. File lain yang kebetulan ada di folder ekstraksi tetap berada di sana. Jika tujuan sudah berisi helper/dokumen dengan nama sama yang belum tercatat sebagai milik paket ini, pemasangan berhenti sebelum memindahkan file; pilih tujuan lain. Update dari arsip baru mengganti file paket yang telah tercatat. Helper yang sudah terpasang juga dapat dijalankan kembali tanpa memindahkan file ke dirinya sendiri. Operasi move dilakukan per file; jika terjadi kegagalan, tinjau status terakhir sebelum melanjutkan.
+
+Helper shell dan PowerShell menampilkan banner, sumber/tujuan, dan daftar aksi sebelum meminta konfirmasi `[y/N]`. Tekan Enter atau jawab `n` untuk membatalkan tanpa perubahan. Aksi yang selesai diberi centang `✓` (fallback `[OK]` pada encoding terbatas); aksi yang dilewati ditandai `[-]`. Output ditambahkan per langkah tanpa membersihkan layar atau animasi redraw. Setelah sukses, pembatalan, atau error, mode terminal interaktif menampilkan **“Tekan tombol apa saja untuk selesai...”** agar hasil sempat dibaca sebelum jendela ditutup. Pada host yang tidak mendukung pembacaan satu tombol, tekan Enter. Pesan error ditampilkan sebelum jeda dan exit code kegagalan tetap dipertahankan.
 
 Windows, jalankan PowerShell dari folder hasil ekstraksi sebagai akun pengguna biasa:
 
 ```powershell
-Get-FileHash .\git-workflow-2.14.0-windows-x64.zip -Algorithm SHA256  # sebelum ekstraksi
+Get-FileHash .\git-workflow-2.15.0-windows-x64.zip -Algorithm SHA256  # sebelum ekstraksi
 .\install-cli.ps1
 ```
 
-Executable dipasang ke `%LOCALAPPDATA%\Programs\git-workflow\bin` dan direktori tersebut ditambahkan ke user PATH. Buka terminal baru setelah pemasangan. Gunakan `-WhatIf` untuk preview, `-InstallDir PATH` untuk tujuan lain, atau `-NoPathUpdate` untuk mengelola PATH sendiri.
+Seluruh paket dipindahkan ke `%LOCALAPPDATA%\Programs\git-workflow\bin` dan direktori tersebut ditambahkan ke user PATH. Buka terminal baru setelah pemasangan. Gunakan `-WhatIf` untuk preview, `-InstallDir PATH` untuk tujuan lain, atau `-NoPathUpdate` untuk mengelola PATH sendiri. `-Yes` melewati konfirmasi dan jeda akhir untuk otomasi/CI. `-NoPause` hanya melewati jeda akhir, konfirmasi operasi tetap berlaku.
+
+Dari CMD, jalankan `powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\install-cli.ps1"` (atau ganti dengan `uninstall-cli.ps1`). Jika kebijakan eksekusi memblokir skrip sebelum mulai, jalankan perintah ini dari CMD yang sudah terbuka agar pesan error tetap terlihat.
 
 Linux/macOS, jalankan dari folder hasil ekstraksi:
 
 ```sh
-# Linux: sha256sum git-workflow-2.14.0-linux-x64.tar.gz
-# macOS: shasum -a 256 git-workflow-2.14.0-macos-x64.tar.gz
+# Linux: sha256sum git-workflow-2.15.0-linux-x64.tar.gz
+# macOS: shasum -a 256 git-workflow-2.15.0-macos-x64.tar.gz
 sh ./install-cli.sh
 ```
 
-Executable dipasang ke `~/.local/bin`. Jika direktori belum ada di PATH, helper mendaftarkannya pada `.zshrc` untuk zsh, `.bashrc` dan profil login aktif untuk bash, atau `.profile` untuk sh/dash/ksh. Untuk shell lain seperti fish, helper memberikan petunjuk agar Anda mengatur PATH melalui konfigurasi shell tersebut. Buka terminal baru. Opsi `--bin-dir PATH`, `--profile PATH`, dan `--no-path-update` tersedia; `--profile` memilih satu file konfigurasi dengan sintaks shell POSIX. Anda juga dapat menyalin executable secara manual ke direktori yang sudah ada di PATH.
+Seluruh paket dipindahkan ke folder khusus `~/.local/share/git-workflow/bin`. Jika direktori belum ada di PATH, helper mendaftarkannya pada `.zshrc` untuk zsh, `.bashrc` dan profil login aktif untuk bash, atau `.profile` untuk sh/dash/ksh. Untuk shell lain seperti fish, helper memberikan petunjuk agar Anda mengatur PATH melalui konfigurasi shell tersebut. Buka terminal baru. Opsi `--bin-dir PATH`, `--profile PATH`, dan `--no-path-update` tersedia; `--profile` memilih satu file konfigurasi dengan sintaks shell POSIX. Penyalinan executable secara manual ke PATH tetap dapat dilakukan tanpa memakai helper.
+
+Gunakan `--dry-run` untuk preview tanpa perubahan dan `--yes` (alias `-y`) untuk melewati konfirmasi serta jeda akhir. Pada eksekusi tanpa input konfirmasi, helper berhenti sebelum perubahan dan memberikan petunjuk opsi otomasi. Contoh:
+
+```powershell
+.\install-cli.ps1 -Yes
+```
+
+```sh
+sh ./install-cli.sh --dry-run
+sh ./install-cli.sh --yes
+```
 
 ## Uninstall CLI
 
-Jalankan helper dari folder arsip release yang sudah diekstrak, atau dari `scripts/` pada checkout sumber. Helper tidak membutuhkan executable di sebelahnya saat uninstall.
+Helper uninstall ikut dipindahkan saat install, sehingga tidak perlu mengekstrak ulang release. Jalankan dari direktori pemasangan; helper membaca catatan di sebelahnya untuk mengenali lokasi paket, termasuk tujuan custom. Helper dari arsip baru atau `scripts/` pada checkout sumber juga dapat dipakai dengan tujuan eksplisit. Uninstall tidak membutuhkan executable di sebelah helper.
 
 Windows:
 
 ```powershell
+cd "$env:LOCALAPPDATA\Programs\git-workflow\bin"
 .\uninstall-cli.ps1 -WhatIf           # preview
 .\uninstall-cli.ps1
 # Tujuan khusus harus sama dengan saat install:
 .\uninstall-cli.ps1 -InstallDir 'D:\Tools\git-workflow'
 ```
 
-Helper menghapus `git-workflow.exe` dan catatan instalasi `.git-workflow-cli.json` dari tujuan pemasangan. Entri user PATH hanya dihapus jika catatan tersebut menunjukkan bahwa installer menambahkannya; PATH yang sudah ada sebelum install dipertahankan. Instalasi lama atau penyalinan manual tanpa catatan tetap dapat dihapus, tetapi entri PATH perlu ditinjau/dihapus manual. `-NoPathUpdate` melewati pembersihan PATH.
+Helper menghapus seluruh file paket yang tercatat, termasuk dirinya sendiri, lalu `.git-workflow-cli.json`. JSON mencatat daftar lima file dan kepemilikan PATH. Entri user PATH hanya dihapus jika catatan tersebut menunjukkan bahwa installer menambahkannya; PATH yang sudah ada sebelum install dipertahankan. Untuk instalasi lama dengan catatan tanpa daftar paket, atau penyalinan manual tanpa catatan, hanya executable yang dihapus; dokumen/helper yang tidak tercatat dipertahankan. Tanpa catatan, entri PATH perlu ditinjau/dihapus manual. `-NoPathUpdate` melewati pembersihan PATH.
 
 Linux/macOS:
 
 ```sh
+cd ~/.local/share/git-workflow/bin
 sh ./uninstall-cli.sh --dry-run      # preview
 sh ./uninstall-cli.sh
 # Gunakan kembali tujuan/profil khusus yang dipakai saat install:
 sh ./uninstall-cli.sh --bin-dir /path/to/bin --profile /path/to/profile
 ```
 
-Helper menghapus `git-workflow` dari `~/.local/bin` atau `--bin-dir`. Pembersihan PATH hanya menghapus blok lengkap yang ditambahkan installer pada `.bashrc`, `.bash_profile`, `.bash_login`, `.profile`, dan `.zshrc`, atau satu profil yang dipilih melalui `--profile`. Blok yang telah diedit dan konfigurasi lain dipertahankan untuk ditinjau manual. `--no-path-update` melewati pembersihan profil. PATH yang diatur manual, termasuk konfigurasi fish, tetap perlu dibersihkan manual.
+Helper menghapus seluruh file paket sesuai catatan `.git-workflow-cli.files`, termasuk dirinya sendiri, lalu catatan tersebut. Pembersihan PATH hanya menghapus blok lengkap yang ditambahkan installer pada `.bashrc`, `.bash_profile`, `.bash_login`, `.profile`, dan `.zshrc`, atau satu profil yang dipilih melalui `--profile`. Blok yang telah diedit dan konfigurasi lain dipertahankan untuk ditinjau manual. `--no-path-update` melewati pembersihan profil. PATH yang diatur manual, termasuk konfigurasi fish, tetap perlu dibersihkan manual. Instalasi lama di `~/.local/bin` tanpa catatan paket hanya menghapus executable; pilih `--bin-dir ~/.local/bin` untuk target eksplisit. Jika tujuan default baru belum ada dan executable lama ditemukan, helper memilih lokasi lama tersebut.
 
-Buka terminal baru setelah uninstall. File lain di direktori pemasangan dan skill agent tetap tersimpan. Untuk menghapus skill juga, jalankan `git-workflow uninstall --apply` untuk proyek atau `git-workflow uninstall --global --apply` **sebelum** menghapus CLI; gunakan `--agent ID` untuk memilih agent.
+Buka terminal baru setelah uninstall. Direktori pemasangan dibuang hanya jika kosong; folder induk produk pada tujuan default juga dibuang jika kosong. File lain di direktori pemasangan dan skill agent tetap tersimpan. Untuk menghapus skill juga, jalankan `git-workflow uninstall --apply` untuk proyek atau `git-workflow uninstall --global --apply` **sebelum** menghapus CLI; gunakan `--agent ID` untuk memilih agent.
+
+Uninstall memakai alur banner, konfirmasi, dan status langkah yang sama, termasuk jeda setelah sukses, pembatalan, atau error. `-WhatIf`/`--dry-run` tidak meminta konfirmasi, menunggu tombol, atau mengubah file. Untuk CI gunakan `.\uninstall-cli.ps1 -Yes` atau `sh ./uninstall-cli.sh --yes`. Opsi `--no-pause` (Linux/macOS) atau `-NoPause` (Windows) melewati jeda akhir tanpa menyetujui operasi. Input/output yang dialihkan tidak memakai jeda tombol pada shell; PowerShell melewatinya saat input dialihkan.
 
 ## Pakai CLI
 
@@ -182,7 +203,9 @@ git-workflow commands --no-color
 
 Saat menjalankan sumber di repo, banner dibaca dari `assets/banner/ASCIILogo.txt`. Salinan logo juga dibundel pada konstanta `BANNER` di `git_workflow.py` agar file Python standalone dan executable dapat berjalan tanpa folder assets. Jika logo diubah, perbarui salinan `BANNER` agar sama; preflight memeriksa kecocokannya sebelum build. Terminal sempit memakai banner ringkas, dan terminal dengan encoding terbatas memakai karakter ASCII.
 
-CLI mengelola pemasangan skill. Command `commitmsg`, `gitpush`, dan command Git lainnya dijalankan sebagai pesan kepada agent melalui `$git-workflow commitmsg` di Codex atau `/git-workflow commitmsg` di Antigravity. Terminal `git-workflow --version` menampilkan `Git Workflow 2.14.0`, yaitu versi paket skill yang akan dipasang; `$git-workflow --version` memeriksa salinan skill yang benar-benar aktif/terpasang. Salinan lama tetap menunjukkan versi pemasangannya sampai diperbarui dengan `install --apply`.
+CLI mengelola pemasangan skill. Command `commitmsg`, `gitpush`, dan command Git lainnya dijalankan sebagai pesan kepada agent melalui `$git-workflow commitmsg` di Codex atau `/git-workflow commitmsg` di Antigravity. Terminal `git-workflow --version` menampilkan `Git Workflow 2.15.0`, yaitu versi paket skill yang akan dipasang; `$git-workflow --version` memeriksa salinan skill yang benar-benar aktif/terpasang. Salinan lama tetap menunjukkan versi pemasangannya sampai diperbarui dengan `install --apply`.
+
+Semua 12 command memakai pemeriksaan sesuai aksi: ketika cakupan dan target jelas, agent langsung mengeksekusi perintah Git yang diizinkan tanpa konfirmasi rutin, audit seluruh repo atau tes/build tambahan. Bukti yang belum berubah dipakai kembali. Hook, persyaratan repo dan perlindungan perubahan lokal/remote tetap berlaku bila relevan. `gitrelease publish` melalui workflow yang sudah tersedia langsung memicu tag/manual publish setelah menentukan target Git dan trigger; validasi versi/changelog, build, signing, artefak/checksum dan notes dilakukan CI tanpa diulang secara lokal. Agent melaporkan status/tautan run tanpa menunggu seluruh build secara default; pemantauan sampai selesai dilakukan jika diminta. Publish direct masih memerlukan pemeriksaan distribusi oleh agent. Jika Git atau CI gagal, agent menganalisis error terkait dan memberi saran retry tanpa retag atau pemulihan destruktif otomatis. Rincian ada pada [panduan eksekusi](Panduan-Git-Workflow.md#eksekusi-sesuai-kondisi-command).
 
 Distribusi Python dapat diunduh dan dijalankan sendiri. Simpan `git_workflow.py` di folder mana pun, lalu jalankan dari root atau subdirektori repo tujuan:
 
@@ -195,6 +218,8 @@ python3 /path/to/git_workflow.py uninstall --apply
 ```
 
 Python dan executable memakai opsi serta deteksi repo yang sama: tujuan mengikuti folder kerja terminal, bukan lokasi skrip. `--project PATH` tersedia untuk tujuan eksplisit. File ini tidak memerlukan modul lokal lain. Installer lama telah digabung ke sumber utama; distribusi Python tetap tersedia sebagai format keempat. Panduan lengkap command agent dan perlindungan installer ada di [Panduan-Git-Workflow.md](Panduan-Git-Workflow.md).
+
+`gitrelease prepare` memeriksa bukti tag/release yang relevan sebelum memilih antara melanjutkan versi saat ini atau menyiapkan versi baru. Perubahan baru setelah versi yang sudah terbit atau ditag memakai versi berikutnya sesuai dampak perubahan dan membuat entri baru; riwayat versi lama dipertahankan. Contoh: `v1.2.0` sudah terbit dan ada perbaikan kompatibel → siapkan `1.2.1`. Persiapan `1.2.1` yang belum ditag, termasuk draft untuk persiapan yang sama, boleh dilanjutkan dengan tambahan catatan tanpa bump berulang; versi dipertimbangkan ulang bila dampak gabungan perubahan menuntutnya. Draft yang sudah terikat pada tag mengikuti perlindungan tag. Retry publikasi pada SHA/versi yang sama tidak melakukan bump. Keterbatasan akses remote tidak menghentikan seluruh prepare: bukti lokal yang cukup dapat mendukung persiapan kandidat, dengan status remote dilaporkan belum terverifikasi. Hanya edit yang keputusan melanjutkan-versus-versi-barunya masih ambigu yang ditahan. Prepare tetap tidak membuat commit, tag, push, mengedit draft di GitHub, atau melakukan publikasi secara implisit.
 
 ## Alur skill `gitrelease init`
 
@@ -211,7 +236,7 @@ Untuk rute default `auto`/`workflow`, hasil lokal init mencakup:
 
 Payload standalone membundel `references/release-workflow.md` dan `assets/release/build-multiplatform-release.yml.tmpl`. Agent mengadaptasi template dan membuat helper proyek berdasarkan toolchain aktual; template bukan workflow siap pakai tanpa penyesuaian. Struktur enam tahap pada bagian berikut menjadi kontrak untuk proyek lain. Semua placeholder dan path helper harus diselesaikan sebelum setup dinyatakan lengkap. Rute `direct` yang dipilih eksplisit menyiapkan build/packaging lokal tanpa membuat publisher otomatis tambahan.
 
-Release notes default mengambil **hanya versi yang dirilis**, dengan judul `## Nama Proyek vVERSI` dan isi kategori changelog versi itu. Riwayat lama tetap disimpan di changelog. Tabel Download atau riwayat versi sebelumnya hanya ditambahkan jika format tersebut dipilih; format lama proyek tidak dimigrasikan diam-diam.
+Release notes default mengambil **hanya versi yang dirilis**, dengan judul release `🎉 Nama Proyek vVERSI`, heading notes `## 📋 Apa yang Baru di vVERSI?`, dan isi kategori changelog versi itu. Riwayat lama tetap disimpan di changelog. Tabel Download atau riwayat versi sebelumnya hanya ditambahkan jika format tersebut dipilih; format lama proyek tidak dimigrasikan diam-diam.
 
 Init menyiapkan file lokal; artefak dihasilkan ketika build dijalankan. Agent melaporkan pemeriksaan aktual, platform yang belum dibangun dan kebutuhan eksternal yang belum tersedia. Init tidak otomatis melakukan commit, tag, push, dispatch CI atau publikasi. Trigger otomatis hanya push tag versi; push branch termasuk main tidak menjalankan workflow release. Manual dengan `publish=false` hanya build/verify; publish memerlukan tag yang sesuai versi/SHA serta semua keluaran wajib dan checksum SHA-256 terverifikasi.
 
@@ -231,8 +256,8 @@ flowchart LR
 Workflow [build-multiplatform-release.yml](.github/workflows/build-multiplatform-release.yml) menggunakan Python dan PyInstaller sesuai codebase ini. Struktur build matrix dan catatan rilis mengikuti [workflow referensi](https://github.com/AlvinPradanaAntony/SI-Pemesanan-Kamar-Kos/blob/main/.github/workflows/build-multiplatform-release.yml); toolchain Java pada referensi diganti dengan toolchain Python.
 
 - Push branch, termasuk `main`: workflow release tidak berjalan.
-- Push tag `v2.14.0`: versi tag harus sama dengan `VERSION` dan memiliki changelog nonkosong; release hanya dipublikasikan setelah seluruh gate berhasil.
-- Filter otomatis memakai `v*.*.*`, termasuk tag prerelease seperti `v2.14.0-rc.1`; preflight tetap memvalidasi SemVer secara tepat.
+- Push tag `v2.15.0`: versi tag harus sama dengan `VERSION` dan memiliki changelog nonkosong; release hanya dipublikasikan setelah seluruh gate berhasil.
+- Filter otomatis memakai `v*.*.*`, termasuk tag prerelease seperti `v2.15.0-rc.1`; preflight tetap memvalidasi SemVer secara tepat.
 - Manual: `version` kosong memakai metadata CLI, `publish` default false. Untuk publish, tag versi harus sudah ada dan menunjuk commit yang sama dengan ref yang dipilih. Pilih ref tag tersebut agar build sesuai release. Tag baru atau release lama tidak diganti otomatis.
 
 Untuk release berikutnya, ubah satu konstanta `VERSION` di `git_workflow.py`, tambahkan entri changelog versi yang sama, commit perubahan, dan push tag `vVERSION`. Output CLI, manifest pemasangan, file `VERSION` skill, nama arsip, dan metadata release mengikuti konstanta tersebut. File `VERSION` skill dihasilkan saat payload dimuat sehingga nomor versi tidak perlu disunting di dalam payload terkompresi. Preflight membaca konstanta langsung dari sumber dan merekam SHA-256 `git_workflow.py`; tahap collect/publish memeriksa artefak Python terhadap hash tersebut dan sumber commit yang disetujui.
@@ -323,10 +348,10 @@ Tes menggunakan direktori sementara sistem (`%TEMP%` di Windows atau lokasi temp
 
 ```sh
 python scripts/release.py preflight --event local --publish false --output .release/metadata.json
-python scripts/release.py notes --version 2.14.0 --output .release/release-notes.md
+python scripts/release.py notes --version 2.15.0 --output .release/release-notes.md
 ```
 
-Ganti `2.14.0` sesuai `VERSION` di `git_workflow.py` ketika menyiapkan versi berikutnya. Preflight memeriksa file proyek, versi paket, payload skill, dan changelog; mode lokal tidak mempublikasikan release. Kedua perintah ini menghasilkan metadata dan catatan rilis dalam `.release/`.
+Ganti `2.15.0` sesuai `VERSION` di `git_workflow.py` ketika menyiapkan versi berikutnya. Preflight memeriksa file proyek, versi paket, payload skill, dan changelog; mode lokal tidak mempublikasikan release. Kedua perintah ini menghasilkan metadata dan catatan rilis dalam `.release/`.
 
 ### 5. Build, smoke test, dan packaging native
 

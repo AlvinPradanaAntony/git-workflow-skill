@@ -53,7 +53,7 @@ class SkillReleaseTests(unittest.TestCase):
 - Previous change.
 """
         self.assertEqual(self.notes.render(content, "1.2.0", project_name="Produk"),
-                         "## Produk v1.2.0\n\n### Fixed\n- Perbaikan yang diverifikasi.\n")
+                         "## 📋 Apa yang Baru di v1.2.0?\n\n### Fixed\n- Perbaikan yang diverifikasi.\n")
 
     def test_missing_duplicate_empty_and_invalid_version_fail(self):
         header = "## [1.2.0] - 2026-10-08\n"
@@ -71,7 +71,7 @@ class SkillReleaseTests(unittest.TestCase):
         args = ["--changelog", str(changelog), "--version", "1.2.0", "--project-name", "Produk"]
         with redirect_stdout(io.StringIO()):
             self.assertEqual(self.notes.main(args + ["--output", str(output)]), 0)
-        self.assertEqual(output.read_text(encoding="utf-8"), "## Produk v1.2.0\n\n### Fixed\n- Perbaikan.\n")
+        self.assertEqual(output.read_text(encoding="utf-8"), "## 📋 Apa yang Baru di v1.2.0?\n\n### Fixed\n- Perbaikan.\n")
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             self.notes.main(args + ["--output", str(changelog)])
         self.assertEqual(changelog.read_bytes(), original)
@@ -81,7 +81,19 @@ class SkillReleaseTests(unittest.TestCase):
         self.assertEqual(self.notes.render(content, "1.2.0"), "### Fixed\n- Baru.\n")
         extended = self.notes.render(content, "1.2.0", previous="1.1.0", project_name="Produk")
         self.assertIn("#### Added\n- Lama.", extended)
-        self.assertTrue(extended.startswith("## Produk v1.2.0\n"))
+        self.assertTrue(extended.startswith("## 📋 Apa yang Baru di v1.2.0?\n"))
+
+    def test_redirected_stdout_preserves_heading_emoji_as_utf8(self):
+        changelog = self.root / "CHANGELOG.md"
+        changelog.write_text("## [1.2.0] - 2026-10-09\n### Fixed\n- Perbaikan.\n", encoding="utf-8")
+        data = io.BytesIO()
+        stream = io.TextIOWrapper(data, encoding="ascii")
+        with redirect_stdout(stream):
+            self.assertEqual(self.notes.main([
+                "--changelog", str(changelog), "--version", "1.2.0", "--project-name", "Produk",
+            ]), 0)
+        stream.flush()
+        self.assertEqual(data.getvalue().decode("utf-8").splitlines()[0], "## 📋 Apa yang Baru di v1.2.0?")
 
 
 if __name__ == "__main__":

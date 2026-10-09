@@ -186,6 +186,7 @@ class ReleaseTests(unittest.TestCase):
 
     def test_notes_include_exact_version_only(self) -> None:
         notes = release.release_notes((self.root / "CHANGELOG.md").read_text(), "2.13.0")
+        self.assertTrue(notes.startswith("## 📋 Apa yang Baru di v2.13.0?\n\n"))
         self.assertIn("Portable CLI.", notes)
         self.assertNotIn("Old installer", notes)
 
